@@ -1,0 +1,265 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!-- saved from url=(0051)http://cs.wheaton.edu/~tvandrun/cs345/proj-avl.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>Project: AVL Trees</title>
+  </head>
+
+  <body>
+    <h1>Project: AVL Trees</h1>
+
+<h2>1. Introduction to this and the following two projects</h2>
+
+<p>[The following talks about "three projects." 
+Only the first two of the three are assigned projects to be turned in.
+The third (one left-leaning red-black trees) is recommended for
+practice, but does not need to be turned in.]</p>
+
+<p>The goal of these next three projects (AVL trees,
+<a href="http://cs.wheaton.edu/~tvandrun/cs345/proj-trad-rb.html">traditional red-black trees</a>,
+and <a href="http://cs.wheaton.edu/~tvandrun/cs345/proj-ll-rb.html">left-learning red-black trees</a>)
+Is to understand how these three balanced binary search tree strategies
+work by implementing them.
+The three projects will use the same code base,
+and in some ways can be seen as a single, big project.
+Splitting them up into three projects, however, 
+will help you spread out the work on them;
+for example, you are encouraged to start work on the AVL tree project
+(described here) after we learn AVL trees rather than waiting until
+we learn all the varieties of trees.
+</p>
+
+<p>One part that is missing from this series of projects is an
+experimental section.
+I haven't developed that part enough yet.
+You are encouraged to write experiments to compare the running time
+for your own learning.
+(Caution: you'll probably find that you need fairly large amounts of
+data to see the effects.)
+</p>
+
+<h2>2. Set-up of this and the following two projects</h2>
+
+<p>As mentioned before, the code base is the same for all three
+projects,
+and this section will give an overview of the whole code.
+Copy the given code from <code>~tvandrun/Public/cs345/bal-tree</code>
+and make an Eclipse project for it. 
+As usual, you will find <code>adt</code>, <code>impl</code>,
+and <code>test</code> packages.
+</p>
+
+<p>
+The most important part of the <code>adt</code> package is 
+the <code>Map</code> interface, which has a slight modification 
+from the previous versions we've seen: the <code>remove()</code> 
+method signature has (ironically) been removed.
+</p>
+
+<p>Because the various kinds of balanced BSTs have a fair amount
+of code in common, we have a complicated type heirarchy:
+</p>
+
+<img src="./Project_ AVL Trees_files/tree-map-hierarchy-rb.png">
+
+<p><code>IterativeBSTMap</code> does not share any code
+with the other types, since it takes a completely different approach.
+In fact, it's not even included with the given code of this project,
+though we have seen it in class.
+</p>
+
+<p>The abstract class <code>RecursiveBSTMap</code> contains all
+the code for manipulating a binary search tree except for anything
+that would verify that the tree meets the properties of various
+balancing strategies and any code that would fix up a tree that is
+out of balance. 
+That is deferred to the child classes.
+The child class <code>BasicRecursiveBSTMap</code> implements
+verification and fixup by... doing nothing. 
+</p>
+
+<p><code>RecursiveBSTMap</code> also has a strategy object
+for verification.
+The verification strategies have their own class heirarchy (not shown),
+where there is a verification strategy class for each of AVL trees,
+traditional RB trees, and left-leaning RB trees.
+Don't modify classes like <code>AVLVerify</code>.
+You won't be turning them in.
+The idea is to keep you from (accidentally or dishonestly)
+changing the verification code so that it allows things that
+aren't really AVL trees or RB trees.
+</p>
+
+
+<p>
+The classes <code>AVLBSTMap</code>, <code>TraditionalRedBlackTreeMap</code>,
+and <code>LeftLeaningRedBlackTreeMap</code> each provide the fix-up code---or
+they will, once you finish them, since that is your task
+in the three projects.
+</p><p>
+
+</p><p>
+However, since the interesting code for these classes
+(including the fix-up code you need to write)
+are implemented recursively in the nodes,
+the type hierarchy for nodes is just as important and
+even more complicated.
+Here it is, but not showing the red-black tree node classes 
+(to simplify it a bit):
+</p>
+
+<img src="./Project_ AVL Trees_files/tree-map-node-hierarchy-avl.png">
+
+<p>This mainly mirrors the type hierarchy for the tree classes,
+but with another dimension:
+The trees are not going to have acutal null references, since that would
+require extra checks every time we use a link.
+Instead, "null" links will be references to special objects
+called null nodes. 
+The advantage is that these objects can respond
+to the same methods as real nodes.
+Hence for every kind of tree, we have both a null node class
+and a "real" node class.
+</p>
+
+<p>Take some time to understand how <code>RecursiveBSTMap</code>
+and its node classes
+are set up and how their code works.
+Notice how <code>NullNode</code> implements operations trivially.
+</p>
+
+<p>An important method signature in
+<code>Node</code>
+is <code>putFixup()</code>.
+Most of your work in each of these three projects will
+be writing implementations for this in the "real node" classes, to rebalance the
+tree when it is in violation of the balance properties.
+</p>
+
+<h2>3. AVL trees</h2>
+
+<p>Turn your attention to <code>AVLBSTMap</code>.
+The interface <code>AVLNode</code> defines some
+additional operations for the nodes of AVL trees. 
+AVL tree nodes will store information about the size, height,
+and balance of the subtree rooted at that node. 
+Note that "balance" is defined as an integer which is
+the left height minus the right height. 
+Thus if the subtrees have the same height, balance is zero.
+That doesn't mean the subtee is perfectly balanced, since the 
+left and right subtrees might themselves be off balance.
+But it means that there is no problem with respect to each other.
+</p>
+
+<p>These attributes could be computed on demand, recursively.
+However, that would require traversing the whole (sub-)tree,
+which would kill performance---it would defeat the purpose
+of using binary search trees.
+So instead we store that pre-computed information in the nodes.
+However, that information could become out of date when an
+insertion is made or when the tree rotates.
+We'll need to recompute those values.
+But even then, we don't want to traverse the whole tree;
+we recompute a node's height, size, and balance by
+assuming the node's children's values are correct
+and recomputing based on those values
+(for example, subtracting the children's heights to get a new balance value).
+This is done by <code>recompute()</code>.
+</p>
+
+
+<p>
+It is the responsibility of the code you write in <code>putFixup()</code>
+to balance and recompute as necessary.
+When the code is verified, the verification strategy will
+throw an <code>ImbalanceException</code> if the AVL
+property is violated.
+It will throw an <code>IgnorantNodeException</code> if
+a node has incorrectly stored height.
+</p>
+
+
+<h2>4. Your task</h2>
+
+<p>Write the body of <code>AVLBSTMap.AVLRealNode.putFixup()</code>.
+This is a hard task; my solution took around 60 lines of code,
+and there's no other way to do this than work through the details
+of the various cases.
+Here's a way to organize it:
+</p>
+
+<ul>
+<li> This method needs to return a node, which will take the place
+of the node on which it is called.
+If no rotation is necessary, the node on which it is called is its
+own "replacement". 
+That's why <code>replacement</code> is initialized to <code>this</code>.
+</li><li> Is the balance negative and worse than -1? Then
+<ul>
+<li>Determine whether to do a right-left rotation.
+</li><li>Whether or not you do a right-left rotation, check whether
+you should (instead or additionally) do a right-right rotation.
+</li></ul>
+</li><li> Do something analagous but mirror-imaged if the balance is
+positive and worse than 1.
+</li></ul>
+
+<p>Other hints:
+</p>
+
+<ul>
+<li> I used variables with names like <code>oldRight</code> and
+<code>oldLeftRight</code> to keep track of nodes in relation to
+<code>this</code> while doing rotations. 
+</li><li> Don't be afraid to use <code>assert</code>.
+If you think something has to be a certain way (balance is in or
+outside a certain range, a node has to have a certain type), then
+assert it.
+</li><li> Node references will be <code>AVLNode</code>, which
+means the objects they refer to could be <code>AVLNullNode</code>.
+This makes a difference because you'll need to get at a
+node's <code>left</code> and <code>right</code>, but
+<code>AVLNullNode</code> doesn't have them.
+If you think you need to get a node's <code>left</code>
+and <code>right</code>, then you better be sure it is not null.
+In that case, <i>cast it</i>.
+Make a new variable of the type <code>AVLRealNode</code>,
+and then you can get at its left and right.
+For example:
+
+<pre>        RealNode oldLeft = (AVLRealNode) left;
+        AVLRealNode oldLeftRight = (AVLRealNode) (oldLeft.right);
+</pre>
+
+<b>Make sure you understand how casting works!</b>
+This doesn't change any node object to be a different type, and
+this doesn't make any new objects.
+This merely asserts that <code>left</code> is 
+an <code>AVLRealNode</code> and uses it as such.
+This won't work (ie, it will throw a <code>ClassCastException</code>)
+if the object <code>left</code> refers to is not 
+an instance of a subtype of <code>AVLRealNode</code>.
+</li></ul>
+
+<p>
+Test using <code>AVLBSTMTest</code>.
+</p>
+
+<h2>5. Turn in</h2>
+
+<p>Copy the file you modified (<code>AVLBSTMap</code>)
+to your turn-in folder <code>/cslab/class/cs345/(your id)/avl</code> .
+</p>
+
+<p>To keep up with the course, this should be finished by <b>March 17</b>.</p>
+
+
+
+    <hr>
+    <address><a href="mailto:Thomas.VanDrunen@wheaton.edu">Thomas VanDrunen</a></address>
+<!-- Created: Tue Feb 23 14:41:07 CST 2016 -->
+<!-- hhmts start -->
+Last modified: Fri Feb  2 11:26:35 CST 2018
+<!-- hhmts end -->
+  
+
+</body></html>
